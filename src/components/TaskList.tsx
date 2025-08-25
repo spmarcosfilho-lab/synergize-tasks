@@ -41,7 +41,17 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
 
       const { data, error } = await supabase
         .from("tasks")
-        .select("*")
+        .select(`
+          id,
+          title,
+          description,
+          due_date,
+          is_completed,
+          created_at,
+          updated_at,
+          parent_task_id,
+          user_id
+        `)
         .eq("user_id", user.id)
         .order("is_completed", { ascending: true })
         .order("created_at", { ascending: false });
@@ -299,7 +309,7 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
               </div>
               
               <div className="flex items-center space-x-1">
-                {!isSubtask && (
+                {!isSubtask && !task.is_completed && (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -337,12 +347,12 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
                   onClick={() => toggleComplete(task.id, task.is_completed)}
                   className={`${
                     task.is_completed 
-                      ? "text-muted-foreground hover:text-foreground hover:bg-muted" 
+                      ? "text-orange-600 hover:text-orange-700 hover:bg-orange-50" 
                       : "text-green-600 hover:text-green-700 hover:bg-green-50"
                   }`}
                   title={task.is_completed ? "Marcar como pendente" : "Finalizar tarefa"}
                 >
-                  <Check className="w-4 h-4" />
+                  {task.is_completed ? <X className="w-4 h-4" /> : <Check className="w-4 h-4" />}
                 </Button>
               </div>
             </div>
