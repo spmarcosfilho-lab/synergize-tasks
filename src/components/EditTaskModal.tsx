@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,24 +13,41 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
-interface AddTaskModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onTaskAdded: () => void;
-  parentTaskId?: string | null;
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: boolean;
+  parent_task_id: string | null;
 }
 
-export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: AddTaskModalProps) {
+interface EditTaskModalProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onTaskUpdated: () => void;
+  task: Task | null;
+}
+
+export function EditTaskModal({ open, onOpenChange, onTaskUpdated, task }: EditTaskModalProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [dueDate, setDueDate] = useState<Date>();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    if (task) {
+      setTitle(task.title);
+      setDescription(task.description || "");
+      setDueDate(task.due_date ? new Date(task.due_date) : undefined);
+    }
+  }, [task]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!title.trim()) {
+    if (!title.trim() || !task) {
       toast({
         title: "Erro",
         description: "O título da tarefa é obrigatório.",
@@ -42,24 +59,14 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
     setIsLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        toast({
-          title: "Erro",
-          description: "Você precisa estar logado para criar uma tarefa.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const { error } = await supabase.from("tasks").insert({
-        title: title.trim(),
-        description: description.trim() || null,
-        due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
-        user_id: user.id,
-        parent_task_id: parentTaskId || null,
-      });
+      const { error } = await supabase
+        .from("tasks")
+        .update({
+          title: title.trim(),
+          description: description.trim() || null,
+          due_date: dueDate ? format(dueDate, "yyyy-MM-dd") : null,
+        })
+        .eq("id", task.id);
 
       if (error) {
         throw error;
@@ -67,20 +74,16 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
 
       toast({
         title: "Sucesso!",
-        description: "Tarefa criada com sucesso.",
+        description: "Tarefa atualizada com sucesso.",
       });
 
-      // Reset form
-      setTitle("");
-      setDescription("");
-      setDueDate(undefined);
       onOpenChange(false);
-      onTaskAdded();
+      onTaskUpdated();
     } catch (error) {
-      console.error("Erro ao criar tarefa:", error);
+      console.error("Erro ao atualizar tarefa:", error);
       toast({
         title: "Erro",
-        description: "Erro ao criar a tarefa. Tente novamente.",
+        description: "Erro ao atualizar a tarefa. Tente novamente.",
         variant: "destructive",
       });
     } finally {
@@ -93,22 +96,17 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
       <DialogContent className="sm:max-w-[425px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>
-              {parentTaskId ? "Adicionar Subtarefa" : "Adicionar Nova Tarefa"}
-            </DialogTitle>
+            <DialogTitle>Editar Tarefa</DialogTitle>
             <DialogDescription>
-              {parentTaskId 
-                ? "Crie uma subtarefa para organizar melhor seu trabalho."
-                : "Crie uma nova tarefa para organizar seu trabalho."
-              }
+              Faça as alterações necessárias na sua tarefa.
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Título *</Label>
+              <Label htmlFor="edit-title">Título *</Label>
               <Input
-                id="title"
+                id="edit-title"
                 placeholder="Digite o título da tarefa"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -117,9 +115,9 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description">Descrição</Label>
+              <Label htmlFor="edit-description">Descrição</Label>
               <Textarea
-                id="description"
+                id="edit-description"
                 placeholder="Digite uma descrição (opcional)"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -172,7 +170,7 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Criar Tarefa
+              Salvar Alterações
             </Button>
           </DialogFooter>
         </form>
