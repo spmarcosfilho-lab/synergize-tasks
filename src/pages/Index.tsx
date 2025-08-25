@@ -1,7 +1,9 @@
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, Users, Zap } from "lucide-react";
 
 const Index = () => {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-gradient-subtle">
       {/* Header */}
@@ -16,7 +18,7 @@ const Index = () => {
           <div className="hidden md:flex space-x-4">
             <Button variant="ghost">Recursos</Button>
             <Button variant="ghost">Preços</Button>
-            <Button variant="outline">Login</Button>
+            <Button variant="outline" onClick={() => navigate("/auth")}>Login</Button>
           </div>
         </nav>
       </header>
@@ -38,10 +40,19 @@ const Index = () => {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-slide-up">
-            <Button size="lg" className="bg-gradient-primary hover:shadow-medium transition-all duration-300 hover:scale-105">
+            <Button 
+              size="lg" 
+              className="bg-gradient-primary hover:shadow-medium transition-all duration-300 hover:scale-105"
+              onClick={() => navigate("/auth")}
+            >
               Cadastre-se Grátis
             </Button>
-            <Button variant="outline" size="lg" className="hover:shadow-soft transition-all duration-300">
+            <Button 
+              variant="outline" 
+              size="lg" 
+              className="hover:shadow-soft transition-all duration-300"
+              onClick={() => navigate("/auth")}
+            >
               Fazer Login
             </Button>
           </div>
@@ -87,10 +98,19 @@ const Index = () => {
 
         {/* Mobile CTA */}
         <div className="md:hidden mt-16 text-center space-y-4">
-          <Button size="lg" className="w-full bg-gradient-primary hover:shadow-medium transition-all duration-300">
+          <Button 
+            size="lg" 
+            className="w-full bg-gradient-primary hover:shadow-medium transition-all duration-300"
+            onClick={() => navigate("/auth")}
+          >
             Cadastre-se Grátis
           </Button>
-          <Button variant="outline" size="lg" className="w-full hover:shadow-soft transition-all duration-300">
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="w-full hover:shadow-soft transition-all duration-300"
+            onClick={() => navigate("/auth")}
+          >
             Fazer Login
           </Button>
         </div>
