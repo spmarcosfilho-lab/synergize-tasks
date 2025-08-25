@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import { Trash2, Calendar, Edit, Plus, ChevronRight, ChevronDown } from "lucide-react";
+import { Trash2, Calendar, Edit, Plus, ChevronRight, ChevronDown, Check, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +30,7 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(new Set());
   const [showAddSubtask, setShowAddSubtask] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const fetchTasks = async () => {
@@ -124,6 +125,92 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
     }
   };
 
+  const toggleTaskSelection = (taskId: string) => {
+    const newSelected = new Set(selectedTasks);
+    if (newSelected.has(taskId)) {
+      newSelected.delete(taskId);
+    } else {
+      newSelected.add(taskId);
+    }
+    setSelectedTasks(newSelected);
+  };
+
+  const selectAllTasks = () => {
+    const allTaskIds = tasks.map(task => task.id);
+    setSelectedTasks(new Set(allTaskIds));
+  };
+
+  const clearSelection = () => {
+    setSelectedTasks(new Set());
+  };
+
+  const completeSelectedTasks = async () => {
+    if (selectedTasks.size === 0) return;
+
+    try {
+      const taskIds = Array.from(selectedTasks);
+      const { error } = await supabase
+        .from("tasks")
+        .update({ is_completed: true })
+        .in("id", taskIds);
+
+      if (error) {
+        throw error;
+      }
+
+      setTasks(tasks.map(task => 
+        selectedTasks.has(task.id) 
+          ? { ...task, is_completed: true }
+          : task
+      ));
+
+      setSelectedTasks(new Set());
+
+      toast({
+        title: "Sucesso!",
+        description: `${taskIds.length} tarefa${taskIds.length !== 1 ? 's' : ''} concluída${taskIds.length !== 1 ? 's' : ''}.`,
+      });
+    } catch (error) {
+      console.error("Erro ao concluir tarefas:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao concluir as tarefas selecionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const deleteSelectedTasks = async () => {
+    if (selectedTasks.size === 0) return;
+
+    try {
+      const taskIds = Array.from(selectedTasks);
+      const { error } = await supabase
+        .from("tasks")
+        .delete()
+        .in("id", taskIds);
+
+      if (error) {
+        throw error;
+      }
+
+      setTasks(tasks.filter(task => !selectedTasks.has(task.id)));
+      setSelectedTasks(new Set());
+
+      toast({
+        title: "Sucesso!",
+        description: `${taskIds.length} tarefa${taskIds.length !== 1 ? 's' : ''} excluída${taskIds.length !== 1 ? 's' : ''}.`,
+      });
+    } catch (error) {
+      console.error("Erro ao excluir tarefas:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao excluir as tarefas selecionadas.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const toggleExpanded = (taskId: string) => {
     const newExpanded = new Set(expandedTasks);
     if (newExpanded.has(taskId)) {
@@ -172,9 +259,10 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
               )}
               
               <Checkbox
-                checked={task.is_completed}
-                onCheckedChange={() => toggleComplete(task.id, task.is_completed)}
+                checked={selectedTasks.has(task.id)}
+                onCheckedChange={() => toggleTaskSelection(task.id)}
                 className="mt-1"
+                title="Selecionar tarefa"
               />
               
               <div className="flex-1 min-w-0">
@@ -242,6 +330,20 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => toggleComplete(task.id, task.is_completed)}
+                  className={`${
+                    task.is_completed 
+                      ? "text-muted-foreground hover:text-foreground hover:bg-muted" 
+                      : "text-green-600 hover:text-green-700 hover:bg-green-50"
+                  }`}
+                  title={task.is_completed ? "Marcar como pendente" : "Finalizar tarefa"}
+                >
+                  <Check className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           </CardContent>
@@ -288,6 +390,69 @@ export function TaskList({ refreshTrigger }: TaskListProps) {
 
   return (
     <>
+      {/* Bulk Actions */}
+      {tasks.length > 0 && (
+        <div className="mb-4 p-4 bg-card rounded-lg border shadow-soft">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedTasks.size === tasks.length && tasks.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      selectAllTasks();
+                    } else {
+                      clearSelection();
+                    }
+                  }}
+                  title="Selecionar todas as tarefas"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedTasks.size > 0 
+                    ? `${selectedTasks.size} tarefa${selectedTasks.size !== 1 ? 's' : ''} selecionada${selectedTasks.size !== 1 ? 's' : ''}`
+                    : "Selecionar todas"
+                  }
+                </span>
+              </div>
+            </div>
+
+            {selectedTasks.size > 0 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={completeSelectedTasks}
+                  className="text-green-600 border-green-600 hover:bg-green-50"
+                >
+                  <Check className="w-4 h-4 mr-2" />
+                  Concluir Selecionadas
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={deleteSelectedTasks}
+                  className="text-destructive border-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Excluir Selecionadas
+                </Button>
+                
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearSelection}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Limpar
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {mainTasks.map(task => renderTask(task))}
       </div>
