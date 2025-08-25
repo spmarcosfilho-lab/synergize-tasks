@@ -5,11 +5,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Plus, LogOut, User, Menu } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AddTaskModal } from "@/components/AddTaskModal";
+import { TaskList } from "@/components/TaskList";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 const Dashboard = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [refreshTasks, setRefreshTasks] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -142,6 +146,7 @@ const Dashboard = () => {
             <Button 
               size="lg" 
               className="bg-gradient-primary hover:shadow-medium transition-all duration-300 hover:scale-105"
+              onClick={() => setShowAddModal(true)}
             >
               <Plus className="w-5 h-5 mr-2" />
               Adicionar Nova Tarefa
@@ -251,6 +256,14 @@ const Dashboard = () => {
             </Card>
           </div>
 
+          {/* Tasks List */}
+          <div className="space-y-4">
+            <h2 className="text-xl font-semibold text-foreground">
+              Suas Tarefas
+            </h2>
+            <TaskList refreshTrigger={refreshTasks} />
+          </div>
+
           {/* Mobile Menu Panel */}
           <div className="md:hidden mt-8 p-4 bg-card rounded-lg shadow-soft">
             <div className="space-y-2">
@@ -276,6 +289,13 @@ const Dashboard = () => {
           </div>
         </div>
       </main>
+
+      {/* Add Task Modal */}
+      <AddTaskModal 
+        open={showAddModal}
+        onOpenChange={setShowAddModal}
+        onTaskAdded={() => setRefreshTasks(prev => prev + 1)}
+      />
     </div>
   );
 };
