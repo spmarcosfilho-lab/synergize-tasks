@@ -39,6 +39,15 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
       return;
     }
 
+    if (!dueDate) {
+      toast({
+        title: "Erro",
+        description: "A data de vencimento é obrigatória.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -129,7 +138,7 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
             </div>
             
             <div className="grid gap-2">
-              <Label>Data de Vencimento</Label>
+              <Label>Data de Vencimento *</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -144,7 +153,7 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
                     {dueDate ? (
                       format(dueDate, "PPP", { locale: ptBR })
                     ) : (
-                      <span>Selecione uma data (opcional)</span>
+                      <span>Selecione uma data *</span>
                     )}
                   </Button>
                 </PopoverTrigger>
@@ -155,6 +164,8 @@ export function AddTaskModal({ open, onOpenChange, onTaskAdded, parentTaskId }: 
                     onSelect={setDueDate}
                     initialFocus
                     locale={ptBR}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                    className={cn("p-3 pointer-events-auto")}
                   />
                 </PopoverContent>
               </Popover>
