@@ -7,15 +7,48 @@ import { CheckCircle, Plus, LogOut, User, Menu } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddTaskModal } from "@/components/AddTaskModal";
 import { TaskList } from "@/components/TaskList";
+import { format, isToday, isFuture, isAfter } from "date-fns";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+
+interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  is_completed: boolean;
+  created_at: string;
+  parent_task_id: string | null;
+}
 
 const Dashboard = () => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [refreshTasks, setRefreshTasks] = useState(0);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const fetchTasks = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      if (!currentUser) return;
+
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("user_id", currentUser.id);
+
+      if (error) {
+        throw error;
+      }
+
+      setTasks(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar tarefas:", error);
+    }
+  };
 
   useEffect(() => {
     const getUser = async () => {
@@ -28,6 +61,7 @@ const Dashboard = () => {
       
       setUser(session.user);
       setLoading(false);
+      fetchTasks();
     };
 
     getUser();
@@ -39,12 +73,35 @@ const Dashboard = () => {
           navigate("/auth");
         } else {
           setUser(session.user);
+          fetchTasks();
         }
       }
     );
 
     return () => subscription.unsubscribe();
   }, [navigate]);
+
+  // Refetch tasks when refreshTasks changes
+  useEffect(() => {
+    if (refreshTasks > 0) {
+      fetchTasks();
+    }
+  }, [refreshTasks]);
+
+  // Calculate task statistics
+  const tasksToday = tasks.filter(task => 
+    !task.is_completed && task.due_date && isToday(new Date(task.due_date))
+  );
+  
+  const tasksUpcoming = tasks.filter(task => 
+    !task.is_completed && task.due_date && 
+    isAfter(new Date(task.due_date), new Date()) && 
+    !isToday(new Date(task.due_date))
+  );
+  
+  const tasksCompleted = tasks.filter(task => task.is_completed);
+  const tasksInProgress = tasks.filter(task => !task.is_completed);
+  const totalTasks = tasks.length;
 
   const handleSignOut = async () => {
     try {
@@ -174,10 +231,19 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma tarefa para hoje</p>
-                  <p className="text-sm mt-2">Que tal adicionar uma?</p>
-                </div>
+                {tasksToday.length > 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-3xl font-bold text-primary">{tasksToday.length}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {tasksToday.length === 1 ? "tarefa para hoje" : "tarefas para hoje"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nenhuma tarefa para hoje</p>
+                    <p className="text-sm mt-2">Que tal adicionar uma?</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -193,10 +259,19 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma tarefa agendada</p>
-                  <p className="text-sm mt-2">Planeje seu futuro!</p>
-                </div>
+                {tasksUpcoming.length > 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-3xl font-bold text-accent">{tasksUpcoming.length}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {tasksUpcoming.length === 1 ? "tarefa futura" : "tarefas futuras"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nenhuma tarefa agendada</p>
+                    <p className="text-sm mt-2">Planeje seu futuro!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -212,10 +287,19 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhuma tarefa concluída</p>
-                  <p className="text-sm mt-2">Complete algumas tarefas!</p>
-                </div>
+                {tasksCompleted.length > 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-3xl font-bold text-muted-foreground">{tasksCompleted.length}</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {tasksCompleted.length === 1 ? "tarefa concluída" : "tarefas concluídas"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Nenhuma tarefa concluída</p>
+                    <p className="text-sm mt-2">Complete algumas tarefas!</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -225,7 +309,7 @@ const Dashboard = () => {
             <Card className="shadow-soft">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">0</p>
+                  <p className="text-2xl font-bold text-primary">{tasksToday.length}</p>
                   <p className="text-sm text-muted-foreground">Tarefas Hoje</p>
                 </div>
               </CardContent>
@@ -233,7 +317,7 @@ const Dashboard = () => {
             <Card className="shadow-soft">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent">0</p>
+                  <p className="text-2xl font-bold text-accent">{tasksInProgress.length}</p>
                   <p className="text-sm text-muted-foreground">Em Progresso</p>
                 </div>
               </CardContent>
@@ -241,7 +325,7 @@ const Dashboard = () => {
             <Card className="shadow-soft">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-muted-foreground">0</p>
+                  <p className="text-2xl font-bold text-muted-foreground">{tasksCompleted.length}</p>
                   <p className="text-sm text-muted-foreground">Concluídas</p>
                 </div>
               </CardContent>
@@ -249,7 +333,7 @@ const Dashboard = () => {
             <Card className="shadow-soft">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-foreground">0</p>
+                  <p className="text-2xl font-bold text-foreground">{totalTasks}</p>
                   <p className="text-sm text-muted-foreground">Total</p>
                 </div>
               </CardContent>
